@@ -1,6 +1,6 @@
 # Single Agent — LangChain Tool-Calling Assistant
 
-A command-line AI assistant built with **LangChain** and **LangGraph** that can search the web, check the weather, tell the time anywhere in the world, and convert currencies. It runs on a Qwen model served by **Groq** and streams its reasoning, tool calls, and answers to the terminal in real time.
+An AI assistant, with both a **Streamlit web app** and a command-line interface, built with **LangChain** and **LangGraph** that can search the web, check the weather, tell the time anywhere in the world, and convert currencies. It runs on a Qwen model served by **Groq** and streams its reasoning, tool calls, and answers in real time.
 
 ---
 
@@ -13,6 +13,8 @@ A command-line AI assistant built with **LangChain** and **LangGraph** that can 
 | `world_clock` | Current local time for any IANA timezone (e.g. `Asia/Kolkata`) | Python `zoneinfo` (no API needed) |
 | `currency_converter` | Converts an amount between currencies using the latest exchange rates | [Frankfurter](https://frankfurter.dev) (free, no key) |
 
+- **Streamlit web UI**: chat interface with example prompts, live tool-call status, and a clear-chat button
+- **Conversation memory (web app)**: follow-up questions like "and in euros?" use earlier context
 - **Streaming output**: prints tokens as they're generated
 - **Visible reasoning**: shows the model's thinking separately from its answer
 - **Tool call tracing**: prints `🔧 calling <tool>` whenever the agent uses a tool
@@ -47,7 +49,10 @@ User ──▶│  model node  │──▶ Final answer
 
 ```
 single-agent/
+├── app.py              # Streamlit web app (imports the agent from main_agent.py)
 ├── main_agent.py       # Agent, tools, and interactive CLI loop
+├── .streamlit/
+│   └── config.toml     # Streamlit theme
 ├── test_agent.ipynb    # Notebook for experimenting with the agent
 ├── requirements.txt    # Python dependencies
 ├── .gitignore
@@ -85,18 +90,34 @@ Create a `.env` file in the project folder:
 ```env
 GROQ_API_KEY=your_groq_api_key
 TAVILY_API_KEY=your_tavily_api_key
+OPENWEATHER_API_KEY=your_openweathermap_api_key
 ```
 
 | Key | Where to get it |
 |---|---|
 | `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) |
 | `TAVILY_API_KEY` | [app.tavily.com](https://app.tavily.com) |
+| `OPENWEATHER_API_KEY` | [home.openweathermap.org/api_keys](https://home.openweathermap.org/api_keys) |
 
 > `.env` is listed in `.gitignore`, so your keys won't be committed.
 
 ---
 
 ## Usage
+
+### Web app (Streamlit)
+
+```bash
+streamlit run app.py
+```
+
+Then open http://localhost:8501 in your browser. The sidebar has:
+- the list of available tools
+- example questions you can click to send
+- a **Show model reasoning** toggle
+- a **Clear chat** button that starts a new conversation
+
+### Command line
 
 ```bash
 python main_agent.py
@@ -154,7 +175,7 @@ def my_tool(arg: str):
 
 ## Notes & Limitations
 
-- **No conversation memory**: each question is handled independently. To add memory, pass a `checkpointer` (e.g. `InMemorySaver`) to `create_agent` and a `thread_id` in the config.
+- **No conversation memory in the CLI**: each question in `main_agent.py` is handled independently (the web app keeps history for the session). To add memory, pass a `checkpointer` (e.g. `InMemorySaver`) to `create_agent` and a `thread_id` in the config.
 - **Exchange rates** come from the European Central Bank via Frankfurter and update once per working day; they are reference rates, not live market prices.
 - **Timezones** must be valid IANA names (`Europe/London`, not `London`). The LLM usually maps city names correctly.
 
@@ -162,6 +183,7 @@ def my_tool(arg: str):
 
 ## Tech Stack
 
+- [Streamlit](https://streamlit.io/) (web UI)
 - [LangChain](https://python.langchain.com/) / [LangGraph](https://langchain-ai.github.io/langgraph/)
 - [Groq](https://groq.com/) (LLM inference)
 - [Tavily](https://tavily.com/) (web search)

@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 load_dotenv()
 GROQ_API_KEY = os.getenv("Groq_API")
 travily_api =os.getenv("TAVILY_API_KEY")
+OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 
 ## Initialize the llm Model
@@ -46,8 +47,9 @@ def get_weather(city):
         city: which city weather you want to find
     """
 
-    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid=bd5e378503939ddaee76f12ad7a97608&units=metric"
-    data = requests.get(url)
+    url = "https://api.openweathermap.org/data/2.5/weather"
+    params = {"q": city, "appid": OPENWEATHER_API_KEY, "units": "metric"}
+    data = requests.get(url, params=params)
     try:
         if data.status_code:
             data = data.json()
@@ -124,7 +126,8 @@ def currency_converter(amount: float, from_currency: str, to_currency: str):
 #Prompt Define
 prompt = """You are a helpful assistant.
 - Use get_weather when the user asks about current weather in a city.
-- Use currency_converter for currency conversion or exchange rate questions.
+- Use currency_converter for every currency conversion or exchange rate question, including follow-ups. Never guess exchange rates.
+- Use world_clock when the user asks for the current time somewhere.
 - Use the search tool for news or other up-to-date information.
 - If no tool is needed, answer directly.
 Keep answers short and clear."""
