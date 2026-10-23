@@ -3,4 +3,4 @@ __pycache__/
 .venv/
 venv/
 env/
-test_agent.ipynb
+test_code/
