@@ -17,7 +17,8 @@ An AI assistant, with both a **Streamlit web app** and a command-line interface,
 | `world_clock` | Current local time for any IANA timezone (e.g. `Asia/Kolkata`) | Python `zoneinfo` (no API needed) |
 | `currency_converter` | Converts an amount between currencies using the latest exchange rates | [Frankfurter](https://frankfurter.dev) (free, no key) |
 
-- **Streamlit web UI**: chat interface with example prompts, live tool-call status, and a clear-chat button
+- **Rich Streamlit UI**: animated hero, clickable starter cards, live step-by-step tool status, typing indicator, and response time per answer
+- **Visual tool result cards**: weather card (colour changes with conditions and day/night), currency conversion card, digital world clock, and news cards with site icons
 - **Short-term memory**: follow-up questions like "and in euros?" use earlier context (web app and CLI)
 - **Context trimming**: older messages are dropped automatically so long chats stay within the model's context window
 - **Demo-safe**: per-session question limit and a friendly message when the LLM is rate limited
@@ -56,7 +57,8 @@ User ──▶│  model node  │──▶ Final answer
 
 ```
 main_agent/
-├── app.py              # Streamlit web app
+├── app.py              # Streamlit web app (chat flow and streaming)
+├── ui.py               # UI styles, hero, starter cards and tool result cards
 ├── main.py             # Interactive command-line chat
 ├── agent.py            # Builds the agent (model + tools + prompt + memory + trimming)
 ├── model.py            # Groq LLM setup
@@ -126,11 +128,11 @@ OPENWEATHER_API_KEY=your_openweathermap_api_key
 streamlit run app.py
 ```
 
-Then open http://localhost:8501 in your browser. The sidebar has:
+Then open http://localhost:8501 in your browser. Click a starter card or type a question. The sidebar has:
 - the list of available tools
-- example questions you can click to send
-- a **Show model reasoning** toggle
-- a **Clear chat** button that starts a new conversation
+- how many demo questions this session has used
+- **Show model reasoning** and **Show tool result cards** toggles
+- a **New chat** button that starts a fresh conversation
 
 ### Command line
 

@@ -17,7 +17,11 @@ def world_clock(timezone: str):
         tz = ZoneInfo(timezone)
         now = datetime.now(tz)
 
-        return now.strftime("Current time in %Z (%z): %Y-%m-%d %H:%M:%S")
+        return {"timezone": timezone,
+                "abbreviation": now.strftime("%Z"),
+                "utc_offset": now.strftime("%z"),
+                "date": now.strftime("%A, %d %B %Y"),
+                "time": now.strftime("%H:%M:%S")}
     except Exception:
         return (
             f"Invalid timezone '{timezone}'. Please use a valid IANA timezone name."

@@ -33,6 +33,7 @@ def currency_converter(amount: float, from_currency: str, to_currency: str):
                 "from": data['base'],
                 "to": to_currency.upper(),
                 "converted_amount": converted,
+                "rate": round(converted / data['amount'], 6) if data['amount'] else None,
                 "rate_date": data['date']}
     except Exception:
         return "Currency converter tool unable to fetch the exchange rate"
