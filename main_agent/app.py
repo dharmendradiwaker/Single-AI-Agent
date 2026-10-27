@@ -2,11 +2,15 @@ import os
 import uuid
 import streamlit as st
 from dotenv import load_dotenv
+from groq import RateLimitError
 
 
 # Load the APIs
 load_dotenv()
 missing_keys = [k for k in ("GROQ_API_KEY", "TAVILY_API_KEY", "OPENWEATHER_API_KEY") if not os.getenv(k)]
+
+# Cap questions per browser session so a public demo can't drain the API quotas
+MAX_QUESTIONS = int(os.getenv("MAX_QUESTIONS_PER_SESSION", "20"))
 
 
 ## Page config
@@ -113,6 +117,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []      # what the UI shows
 if "thread_id" not in st.session_state:
     st.session_state.thread_id = str(uuid.uuid4())  # agent memory lives in the checkpointer under this id
+if "questions_asked" not in st.session_state:
+    st.session_state.questions_asked = 0  # not reset by "Clear chat"
 
 config = {"configurable": {"thread_id": st.session_state.thread_id}}
 
@@ -134,7 +140,12 @@ prompt = st.chat_input("Ask a question...")
 if st.session_state.get("pending_prompt"):
     prompt = st.session_state.pop("pending_prompt")
 
+if prompt and st.session_state.questions_asked >= MAX_QUESTIONS:
+    st.warning(f"You've reached the demo limit of {MAX_QUESTIONS} questions for this session. Thanks for trying it out!")
+    prompt = None
+
 if prompt:
+    st.session_state.questions_asked += 1
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="🧑"):
         st.markdown(prompt)
@@ -175,6 +186,12 @@ if prompt:
             if status is not None:
                 status.update(label=f"Used {len(tools_used)} tool(s)", state="complete", expanded=False)
             answer_box.markdown(answer or "_No answer returned._")
+
+        except RateLimitError:
+            if status is not None:
+                status.update(label="Rate limited", state="error")
+            answer = "⏳ The demo is getting a lot of requests right now. Please wait a minute and try again."
+            answer_box.warning(answer)
 
         except Exception as e:
             if status is not None:

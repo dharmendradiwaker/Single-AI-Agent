@@ -1,5 +1,9 @@
 # Single Agent — LangChain Tool-Calling Assistant
 
+> **Live demo:** _add your Streamlit Cloud link here_
+
+<!-- Add a screenshot or GIF of the app: ![Demo](demo.gif) -->
+
 An AI assistant, with both a **Streamlit web app** and a command-line interface, built with **LangChain** and **LangGraph** that can search the web, check the weather, tell the time anywhere in the world, and convert currencies. It runs on a Qwen model served by **Groq** and streams its reasoning, tool calls, and answers in real time.
 
 ---
@@ -14,7 +18,9 @@ An AI assistant, with both a **Streamlit web app** and a command-line interface,
 | `currency_converter` | Converts an amount between currencies using the latest exchange rates | [Frankfurter](https://frankfurter.dev) (free, no key) |
 
 - **Streamlit web UI**: chat interface with example prompts, live tool-call status, and a clear-chat button
-- **Conversation memory (web app)**: follow-up questions like "and in euros?" use earlier context
+- **Short-term memory**: follow-up questions like "and in euros?" use earlier context (web app and CLI)
+- **Context trimming**: older messages are dropped automatically so long chats stay within the model's context window
+- **Demo-safe**: per-session question limit and a friendly message when the LLM is rate limited
 - **Streaming output**: prints tokens as they're generated
 - **Visible reasoning**: shows the model's thinking separately from its answer
 - **Tool call tracing**: prints `🔧 calling <tool>` whenever the agent uses a tool
@@ -42,21 +48,30 @@ User ──▶│  model node  │──▶ Final answer
 2. It decides whether to answer directly or call one of the tools (based on each tool's docstring).
 3. Tool results are fed back to the LLM, which can call more tools or produce the final answer.
 4. Only the output of the `model` node is printed, so raw tool responses stay hidden.
+5. An `InMemorySaver` checkpointer stores the conversation per `thread_id`, and the `trim_msg` middleware runs before every model call to keep only the most recent messages. The cut always starts at a user message, so a tool call is never separated from its result.
 
 ---
 
 ## Project Structure
 
 ```
-single-agent/
-├── app.py              # Streamlit web app (imports the agent from main_agent.py)
-├── main_agent.py       # Agent, tools, and interactive CLI loop
+main_agent/
+├── app.py              # Streamlit web app
+├── main.py             # Interactive command-line chat
+├── agent.py            # Builds the agent (model + tools + prompt + memory + trimming)
+├── model.py            # Groq LLM setup
+├── prompt.py           # System prompt (tool-routing instructions)
+├── trim_msg.py         # Middleware that trims old messages before each model call
+├── config.py           # Thread id used by the CLI
+├── tools/
+│   ├── search.py       # Tavily web search
+│   ├── weather.py      # OpenWeatherMap
+│   ├── clock.py        # World clock (zoneinfo)
+│   └── currency.py     # Frankfurter currency converter
 ├── .streamlit/
 │   └── config.toml     # Streamlit theme
-├── test_agent.ipynb    # Notebook for experimenting with the agent
-├── requirements.txt    # Python dependencies
-├── .gitignore
-└── README.md
+├── .env.example        # Template for your API keys
+└── requirements.txt    # Python dependencies
 ```
 
 ---
@@ -67,7 +82,7 @@ single-agent/
 
 ```bash
 git clone https://github.com/<your-username>/<repo-name>.git
-cd <repo-name>
+cd <repo-name>/main_agent
 ```
 
 ### 2. Create and activate a virtual environment
@@ -85,7 +100,7 @@ pip install -r requirements.txt
 
 ### 4. Add your API keys
 
-Create a `.env` file in the project folder:
+Copy `.env.example` to `.env` inside `main_agent/` and fill in your keys:
 
 ```env
 GROQ_API_KEY=your_groq_api_key
@@ -120,7 +135,7 @@ Then open http://localhost:8501 in your browser. The sidebar has:
 ### Command line
 
 ```bash
-python main_agent.py
+python main.py
 ```
 
 Type a question at the prompt. Type `exit`, `stop`, or `q` to quit.
@@ -148,20 +163,20 @@ Ask question:- Convert 100 USD to INR
 
 ## Configuration
 
-You can tweak the agent in `main_agent.py`:
-
 | Setting | Location | Default |
 |---|---|---|
-| LLM model | `ChatGroq(model=...)` | `qwen/qwen3.8-27b` |
-| Temperature | `ChatGroq(temperature=...)` | `0` (deterministic) |
-| Search results | `TavilySearch(max_results=...)` | `3` |
-| System prompt | `prompt` variable | Short, tool-routing instructions |
+| LLM model | `MODEL_NAME` in `model.py` | `qwen/qwen3.8-27b` |
+| Temperature | `ChatGroq(temperature=...)` in `model.py` | `0` (deterministic) |
+| Search results | `TavilySearch(max_results=...)` in `tools/search.py` | `3` |
+| System prompt | `prompt` in `prompt.py` | Short, tool-routing instructions |
+| Memory window | `MAX_MESSAGES` in `trim_msg.py` | `6` messages |
+| Web app question limit | `MAX_QUESTIONS_PER_SESSION` env var | `20` per browser session |
 
 ### Adding a new tool
 
 1. Write a Python function and decorate it with `@tool`.
 2. Give it a clear docstring; the LLM uses it to decide when to call the tool.
-3. Add it to the `tools=[...]` list in `create_agent(...)`.
+3. Save it in `tools/` and add it to the `tools=[...]` list in `agent.py`.
 4. Optionally mention it in the system prompt.
 
 ```python
@@ -173,9 +188,25 @@ def my_tool(arg: str):
 
 ---
 
+## Deploy (Streamlit Community Cloud)
+
+1. Push the repo to GitHub.
+2. On [share.streamlit.io](https://share.streamlit.io), create a new app and set the main file path to `main_agent/app.py`.
+3. Under **Advanced settings → Secrets**, add your keys (they become environment variables):
+   ```toml
+   GROQ_API_KEY = "..."
+   TAVILY_API_KEY = "..."
+   OPENWEATHER_API_KEY = "..."
+   MAX_QUESTIONS_PER_SESSION = "20"
+   ```
+4. Deploy and share the link.
+
+---
+
 ## Notes & Limitations
 
-- **No conversation memory in the CLI**: each question in `main_agent.py` is handled independently (the web app keeps history for the session). To add memory, pass a `checkpointer` (e.g. `InMemorySaver`) to `create_agent` and a `thread_id` in the config.
+- **Short-term memory only**: conversations live in memory and are lost when the app restarts. Only the last few messages are kept, so the agent remembers roughly the last one or two turns.
+- **Question limit is per browser session**: refreshing the page starts a new session. It stops casual overuse, not a determined abuser.
 - **Exchange rates** come from the European Central Bank via Frankfurter and update once per working day; they are reference rates, not live market prices.
 - **Timezones** must be valid IANA names (`Europe/London`, not `London`). The LLM usually maps city names correctly.
 
